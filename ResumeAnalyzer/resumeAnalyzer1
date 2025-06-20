@@ -1,0 +1,68 @@
+import pandas as pd
+import numpy as np
+import re
+import spacy
+import matplotlib.pyplot as plt
+from collections import Counter
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
+nlp = spacy.load("en_core_web_sm")
+
+data = {
+    "Resume": [
+        "Experienced Data Scientist skilled in Python, Machine Learning, and NLP.",
+        "Software Engineer with expertise in Java, Spring Boot, and microservices.",
+        "Marketing Specialist with SEO, content writing, and analytics skills.",
+        "Data Engineer familiar with Big Data, Spark, and Python.",
+        "AI Researcher with experience in Deep Learning, PyTorch, and Transformers."
+    ],
+    "Job Role": ["Data Scientist", "Software Engineer", "Marketing", "Data Engineer", "AI Researcher"]
+}
+
+df = pd.DataFrame(data)
+
+def clean_text(text):
+    text = re.sub(r'\s+', ' ', text)  
+    text = re.sub(r'[^\w\s]', '', text) 
+    doc = nlp(text.lower())  
+    return " ".join([token.lemma_ for token in doc if not token.is_stop])
+
+df["Cleaned_Resume"] = df["Resume"].apply(clean_text)
+
+vectorizer = TfidfVectorizer()
+X = vectorizer.fit_transform(df["Cleaned_Resume"])
+
+plt.figure(figsize=(8, 5))
+role_counts = df["Job Role"].value_counts()
+plt.bar(role_counts.index, role_counts.values, color=['blue', 'green', 'red', 'purple', 'orange'])
+plt.xlabel("Job Role")
+plt.ylabel("Number of Resumes")
+plt.title("Resume Distribution by Job Role")
+plt.xticks(rotation=15)
+plt.show()
+
+all_text = " ".join(df["Cleaned_Resume"])
+word_freq = Counter(all_text.split())
+common_words = word_freq.most_common(10)
+words, counts = zip(*common_words)
+
+plt.figure(figsize=(8, 5))
+plt.bar(words, counts, color="darkred")
+plt.xlabel("Words")
+plt.ylabel("Frequency")
+plt.title("Top 10 Common Words in Resumes")
+plt.xticks(rotation=45)
+plt.show()
+
+job_desc = ["Looking for a Data Scientist with strong Python, Machine Learning, and NLP skills."]
+job_vector = vectorizer.transform(job_desc)  
+
+similarity_scores = cosine_similarity(X, job_vector)
+
+df["Similarity_Score"] = np.round(similarity_scores, 2)
+
+df_sorted = df.sort_values(by="Similarity_Score", ascending=False)
+
+print("\nTop Matching Resumes for the Job Description:")
+print(df_sorted[["Job Role", "Similarity_Score"]])
